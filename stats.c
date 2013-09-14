@@ -101,7 +101,8 @@ int main(int argc, char *argv[]) {
 	char *lineptr = NULL;
 
 	while (getline(&lineptr, &l, stdin) != -1) {
-		sum = sum + atof(lineptr);
+		long double n = atof(lineptr);
+		sum = sum + n;
 		++num;
 	}
 
