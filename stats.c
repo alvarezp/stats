@@ -14,6 +14,7 @@ int main(int argc, char *argv[]) {
 	int opt_num = 0;
 	int opt_hlp = 0;
 	int opt_ver = 0;
+	int opt_max = 0;
 	
 	int c;
 
@@ -26,6 +27,7 @@ int main(int argc, char *argv[]) {
 			{"count",   no_argument,       NULL,        'n'},
 			{"num",     no_argument,       NULL,        'n'},
 			{"sum",     no_argument,       NULL,        's'},
+			{"max",     no_argument,       NULL,        'M'},
 			{"help",    no_argument,       NULL,        200},
 			{"version", no_argument,       NULL,        201},
 			{0,         0,                 0,            0}
@@ -34,7 +36,7 @@ int main(int argc, char *argv[]) {
 
 		int option_index = 0;
 
-		c = getopt_long (argc, argv, "achns", long_options, &option_index);
+		c = getopt_long (argc, argv, "achMns", long_options, &option_index);
 
 		/* Detect the end of the options. */
 		if (c == -1)
@@ -61,6 +63,10 @@ int main(int argc, char *argv[]) {
 				opt_sum = 1;
 				break;
 
+			case 'M':
+				opt_max = 1;
+				break;
+
 			case 200:
 				opt_hlp = 1;
 				break;
@@ -85,6 +91,7 @@ int main(int argc, char *argv[]) {
 		printf("	-a		Show average.\n");
 		printf("	-c, -n  Show item count.\n");
 		printf("	-s		Show sum.\n");
+		printf("	-M		Show maximum.\n");
 		printf("\n");
 		exit(EXIT_SUCCESS);
 	}
@@ -129,5 +136,8 @@ int main(int argc, char *argv[]) {
 
 	if (opt_avg)
 		printf("%s%LG\n", opt_n > 1 ? "avg....: " : "", sum / num);
+
+	if (opt_max)
+		printf("%s%LG\n", opt_n > 1 ? "max....: " : "", max);
 
 }
