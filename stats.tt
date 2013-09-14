@@ -68,5 +68,16 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -M)
 	EXITCODE=1
 }
 
+TESTNAME=min
+EXPECTED="1"
+RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -m) || exit 1
+[ "$RESULT" = "$EXPECTED" ] || {
+	echo Failed test: $TESTNAME
+	echo ":: Expected result: *$EXPECTED*"
+	echo ":: Actual result..: *$RESULT*"
+	echo
+	EXITCODE=1
+}
+
 exit $EXITCODE;
 

@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
 	int opt_hlp = 0;
 	int opt_ver = 0;
 	int opt_max = 0;
+	int opt_min = 0;
 	
 	int c;
 
@@ -28,6 +29,7 @@ int main(int argc, char *argv[]) {
 			{"num",     no_argument,       NULL,        'n'},
 			{"sum",     no_argument,       NULL,        's'},
 			{"max",     no_argument,       NULL,        'M'},
+			{"min",     no_argument,       NULL,        'm'},
 			{"help",    no_argument,       NULL,        200},
 			{"version", no_argument,       NULL,        201},
 			{0,         0,                 0,            0}
@@ -36,7 +38,7 @@ int main(int argc, char *argv[]) {
 
 		int option_index = 0;
 
-		c = getopt_long (argc, argv, "achMns", long_options, &option_index);
+		c = getopt_long (argc, argv, "achMmns", long_options, &option_index);
 
 		/* Detect the end of the options. */
 		if (c == -1)
@@ -67,6 +69,10 @@ int main(int argc, char *argv[]) {
 				opt_max = 1;
 				break;
 
+			case 'm':
+				opt_min = 1;
+				break;
+
 			case 200:
 				opt_hlp = 1;
 				break;
@@ -92,6 +98,7 @@ int main(int argc, char *argv[]) {
 		printf("	-c, -n  Show item count.\n");
 		printf("	-s		Show sum.\n");
 		printf("	-M		Show maximum.\n");
+		printf("	-m		Show minimum.\n");
 		printf("\n");
 		exit(EXIT_SUCCESS);
 	}
@@ -108,10 +115,12 @@ int main(int argc, char *argv[]) {
 	char *lineptr = NULL;
 
 	long double max = 0;
+	long double min = 0;
 
 	if (getline(&lineptr, &l, stdin) != -1) {
 		long double n = atof(lineptr);
 		max = n;
+		min = n;
 		sum = n;
 		num = 1;
 	}
@@ -120,6 +129,8 @@ int main(int argc, char *argv[]) {
 		long double n = atof(lineptr);
 		if (n > max)
 			max = n;
+		if (n < min)
+			min = n;
 		sum = sum + n;
 		++num;
 	}
@@ -139,5 +150,8 @@ int main(int argc, char *argv[]) {
 
 	if (opt_max)
 		printf("%s%LG\n", opt_n > 1 ? "max....: " : "", max);
+
+	if (opt_min)
+		printf("%s%LG\n", opt_n > 1 ? "min....: " : "", min);
 
 }
