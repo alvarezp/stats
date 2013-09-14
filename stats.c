@@ -100,8 +100,19 @@ int main(int argc, char *argv[]) {
 	size_t l = 0;
 	char *lineptr = NULL;
 
+	long double max = 0;
+
+	if (getline(&lineptr, &l, stdin) != -1) {
+		long double n = atof(lineptr);
+		max = n;
+		sum = n;
+		num = 1;
+	}
+
 	while (getline(&lineptr, &l, stdin) != -1) {
 		long double n = atof(lineptr);
+		if (n > max)
+			max = n;
 		sum = sum + n;
 		++num;
 	}
