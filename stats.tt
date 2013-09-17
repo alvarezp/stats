@@ -4,7 +4,7 @@ EXITCODE=0
 
 TESTNAME=sum
 EXPECTED="24"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -s) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -s) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
@@ -15,7 +15,7 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -s)
 
 TESTNAME=avg
 EXPECTED="3.42857"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -a) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -a) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
@@ -26,7 +26,7 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -a)
 
 TESTNAME=num
 EXPECTED="7"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -n) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -n) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
@@ -37,7 +37,7 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -n)
 
 TESTNAME=multi-sumnum-sum
 EXPECTED="sum....: 24"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -s -n | head -n 1) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -s -n | head -n 1) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
@@ -48,7 +48,7 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -s 
 
 TESTNAME=multi-sumnum-num
 EXPECTED="num....: 7"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -s -n | head -n 2 | tail -n 1) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -s -n | head -n 2 | tail -n 1) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
@@ -59,7 +59,7 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -s 
 
 TESTNAME=max
 EXPECTED="11"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -M) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -M) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
@@ -70,7 +70,7 @@ RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -M)
 
 TESTNAME=min
 EXPECTED="1"
-RESULT=$((echo 1; echo 2; echo 3; echo 11; echo 1; echo 2; echo 4) | ./stats -m) || exit 1
+RESULT=$(printf "%d\n" 1 2 3 11 1 2 4 | ./stats -m) || exit 1
 [ "$RESULT" = "$EXPECTED" ] || {
 	echo Failed test: $TESTNAME
 	echo ":: Expected result: *$EXPECTED*"
