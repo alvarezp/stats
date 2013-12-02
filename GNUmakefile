@@ -4,7 +4,7 @@
 # Automatic dependency generation adapted from
 # http://www.scottmcpeak.com/autodepend/autodepend.html
 
-CFLAGS += -Wall -std=c99 -pedantic-errors -fPIC -ggdb
+CFLAGS += -Wall -Wextra -Werror -Wno-error=unused-variable -std=c99 -pedantic-errors -fPIC -ggdb
 
 VALGRIND_EXTRA = --suppressions=/dev/null
 
@@ -21,13 +21,16 @@ OBJS_NO_TDD = stats.o
 
 # ===== MODIFICATIONS SHOULD NOT BE NEEDED BELOW THIS LINE =====
 
-APP_TESTS_TS = $(APP_TESTS:.tt=.tts) $(APP_TESTS:.t=.ts)
-TESTS = $(OBJS_TDD:.o=.ts)
+APP_TESTS_TS = $(patsubst %.t,.caddeus/timestamps/%.ts,$(filter %.t,$(APP_TESTS)))
+APP_TESTS_TTS = $(patsubst %.tt,.caddeus/timestamps/%.tts,$(filter %.tt,$(APP_TESTS)))
+OBJ_TESTS_TS = $(patsubst %.o,.caddeus/timestamps/%.ts,$(OBJS_TDD))
 ALL_OBJS = $(OBJS_TDD) $(OBJS_NO_TDD)
 
 VALGRIND_LINE = valgrind --error-exitcode=255 --leak-check=full -q --track-origins=yes
 
 CPPCHECK_LINE = cppcheck --error-exitcode=1 --std=c99 --quiet
+
+CLANG_LINE = clang --analyze -pedantic
 
 # ===== MODIFICATIONS SHOULD REALLY NOT BE NEEDED BELOW THIS LINE =====
 
@@ -39,6 +42,12 @@ VALGRIND = $(if $(or $(DONT_HAVE_VALGRIND),$(SKIP_VALGRIND),$(THIS_IS_A_RELEASE)
 DONT_HAVE_CPPCHECK = $(if $(shell which cppcheck),,y)
 
 CPPCHECK = $(if $(or $(DONT_HAVE_CPPCHECK),$(SKIP_CPPCHECK),$(THIS_IS_A_RELEASE)),true '-- skipping Cppcheck --',$(CPPCHECK_LINE) $(CPPCHECK_EXTRA))
+
+DONT_HAVE_CLANG = $(if $(shell which clang),,y)
+
+CLANG = $(if $(or $(DONT_HAVE_CLANG),$(SKIP_CLANG),$(THIS_IS_A_RELEASE)),true '-- skipping Clang --',$(CLANG_LINE) $(CLANG_EXTRA))
+
+CFLAGS := $(if $(THIS_IS_A_RELEASE),-DNDEBUG,) $(CFLAGS)
 
 # Arithmetic taken from this amazing article by John Graham-Cumming:
 # http://www.cmcrossroads.com/article/learning-gnu-make-functions-arithmetic
@@ -56,38 +65,43 @@ endif
 .DEFAULT_GOAL := all
 
 .PHONY : all
-all: $(APP) $(APP_TESTS_TS)
+all: $(APP) $(APP_TESTS_TTS) $(APP_TESTS_TS)
 	@echo "Build completed successfully."
 
 # Pull in dependency info for existing .o and .t files.
--include $(ALL_OBJS:.o=.d)
--include $(ALL_OBJS:.o=.t.d)
+-include $(patsubst %.o,.caddeus/dependencies/%.d,$(ALL_OBJS))
+-include $(patsubst %.o,.caddeus/dependencies/%.t.d,$(ALL_OBJS))
 
 # All lower targets depend on GNUmakefile so everything rebuilds if GNUmakefile
 # changes.
 GNUmakefile:
 
-$(APP): $(ALL_OBJS) $(TESTS)
+$(APP): $(ALL_OBJS) $(OBJ_TESTS_TS)
 	@echo -e '\n'===== $@, building app...
-	gcc -o $(APP) $(LIBS) $(OBJS_TDD) $(OBJS_NO_TDD)
+	gcc -o $(APP) $(OBJS_TDD) $(OBJS_NO_TDD) $(LIBS)
 
 # Compile plus generate dependency information.
 %.o: %.c GNUmakefile
 	@echo -e '\n'===== $@, building module...
 	$(CPPCHECK) $*.c
+	@mkdir -p .caddeus/clang/$(*D)
+	$(CLANG) $(CFLAGS) -o .caddeus/clang/$*.plist $*.c
 	gcc $(CFLAGS) -o $*.o -c $*.c
 	@echo -e '\n'===== $@, generating dependency information...
-	gcc $(CFLAGS) -MM -MP -MT $*.o $*.c > $*.d
+	@mkdir -p .caddeus/dependencies/$(*D)
+	gcc $(CFLAGS) -MM -MP -MT $*.o $*.c > .caddeus/dependencies/$*.d
 
-%.ts: %.t
+.caddeus/timestamps/%.ts: %.t
 	$(eval CALL_TIMEOUT=$(call multiply,$(firstword $($(@:.ts=_TIMEOUT_MULT)) 1),$(DEFAULT_TIMEOUT)))
 	@echo -e '\n'===== $@, running test with timeout=$(CALL_TIMEOUT)...
-	timeout $(CALL_TIMEOUT) $(VALGRIND) ./$*.t && touch $*.ts
+	@mkdir -p $(@D)
+	timeout $(CALL_TIMEOUT) $(VALGRIND) ./$*.t && touch $@
 
-%.tts: %.tt $(APP)
+.caddeus/timestamps/%.tts: %.tt $(APP)
 	$(eval CALL_TIMEOUT=$(call multiply,$(firstword $($(@:.tts=_TIMEOUT_MULT)) 1),$(DEFAULT_TIMEOUT)))
 	@echo -e '\n'===== $@, running test with timeout=$(CALL_TIMEOUT)...
-	timeout $(CALL_TIMEOUT) $(VALGRIND) ./$*.tt && touch $*.tts
+	@mkdir -p $(@D)
+	timeout $(CALL_TIMEOUT) $(VALGRIND) ./$*.tt && touch $@
 
 %.t.c:
 	@echo -e '\n'===== $@ doesn\'t exist\! Please create one.
@@ -100,9 +114,12 @@ $(APP): $(ALL_OBJS) $(TESTS)
 %.to: %.t.c GNUmakefile
 	@echo -e '\n'===== $@, building test module...
 	$(CPPCHECK) $*.t.c
+	@mkdir -p .caddeus/clang/$(*D)
+	$(CLANG) $(CFLAGS) -o .caddeus/clang/$*.t.plist $*.t.c
 	gcc $(CFLAGS) -o $*.to -c $*.t.c
 	@echo -e '\n'===== $@, generating dependency information...
-	gcc $(CFLAGS) -MM -MP -MT $*.to $*.t.c > $*.t.d
+	@mkdir -p .caddeus/dependencies/$(*D)
+	gcc $(CFLAGS) -MM -MP -MT $*.to $*.t.c > .caddeus/dependencies/$*.t.d
 
 %.t: %.to %.o
 	@echo -e '\n'===== $@, building test...
@@ -116,12 +133,14 @@ $(APP): $(ALL_OBJS) $(TESTS)
 clean:
 	@echo -e '\n'===== Cleaning...
 	rm -f $(APP)
-	rm -f *.o
-	rm -f *.d
-	rm -f *.t
-	rm -f *.to
-	rm -f *.ts
-	rm -f *.tts
+	rm -fr .caddeus
+	rm -f $(OBJS_NO_TDD)
+	rm -f $(OBJS_TDD)
+	rm -f $(patsubst %.o,%.t,$(OBJS_TDD))
+	rm -f $(patsubst %.o,%.to,$(OBJS_TDD))
+	rm -f $(filter %.t,$(APP_TESTS))
+	rm -f $(patsubst %.t,%.to,$(filter %.t,$(APP_TESTS)))
+	rm -f $(CLEAN_MORE)
 
 .PHONY : force
 force:
