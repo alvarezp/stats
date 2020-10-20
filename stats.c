@@ -1,11 +1,8 @@
-#define _GNU_SOURCE
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <unistd.h>
-
-#define _GNU_SOURCE
 
 int main(int argc, char *argv[]) {
 	
