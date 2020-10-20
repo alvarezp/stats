@@ -1,30 +1,35 @@
-# Copyright (c) 2013, Octavio Alvarez <alvarezp@alvarezp.com>
-# Released under the Simplified BSD License. See the LICENSE file.
-
-# Automatic dependency generation adapted from
-# http://www.scottmcpeak.com/autodepend/autodepend.html
-
-CFLAGS += -Wall -Wextra -Werror -Wno-error=unused-variable -std=c99 -pedantic-errors -fPIC -ggdb
-
-VALGRIND_EXTRA = --suppressions=/dev/null
-
-#CPPCHECK_EXTRA = --suppress=...
-
 .SECONDARY:
 
 APP = stats
-APP_TESTS = stats.tt
-LIBS =
+#LDLIBS +=
+#LDFLAGS +=
 
-OBJS_TDD = 
-OBJS_NO_TDD = stats.o
+OBJS = stats.o
+
+#To add libraries to a test, use the "unitname/testname_LDLIBS" variable:
+#hello/hello_LDLIBS=-lm
+#hello/hello_LDFLAGS=
+
+#Same goes to integration test:
+#apptest1_LDLIBS=-lm
+
+CLEAN_MORE =
+
+#These defaults are really aggressive. You may want to tweak them.
+WNO_ERROR = -Wno-error=unused-variable -Wno-error=unused-parameter
+CFLAGS += -Wall -Wextra -Werror -std=c99 -pedantic-errors $(WNO_ERROR) -fPIC -ggdb
+VALGRIND_EXTRA = --suppressions=/dev/null
+#CPPCHECK_EXTRA = --suppress=...
+SPLINT_EXTRA = -unrecog -fullinitblock -initallelements
+
+#Strictly speaking you should rebuild your entire project if you change the
+#GNUmakefile, but it can be quite cumbersome if your project is really big
+#and you are debugging or hacking the GNUmakefile.
+REBUILD_ON=GNUmakefile
 
 # ===== MODIFICATIONS SHOULD NOT BE NEEDED BELOW THIS LINE =====
 
-APP_TESTS_TS = $(patsubst %.t,.caddeus/timestamps/%.ts,$(filter %.t,$(APP_TESTS)))
-APP_TESTS_TTS = $(patsubst %.tt,.caddeus/timestamps/%.tts,$(filter %.tt,$(APP_TESTS)))
-OBJ_TESTS_TS = $(patsubst %.o,.caddeus/timestamps/%.ts,$(OBJS_TDD))
-ALL_OBJS = $(OBJS_TDD) $(OBJS_NO_TDD)
+CC = gcc
 
 VALGRIND_LINE = valgrind --error-exitcode=255 --leak-check=full -q --track-origins=yes
 
@@ -32,117 +37,139 @@ CPPCHECK_LINE = cppcheck --error-exitcode=1 --std=c99 --quiet
 
 CLANG_LINE = clang --analyze -pedantic
 
+SPLINT_LINE = splint +quiet -weak
+
+# Disable builtin rules. This lets us avoid all kinds of surprises.
+.SUFFIXES:
+
 # ===== MODIFICATIONS SHOULD REALLY NOT BE NEEDED BELOW THIS LINE =====
 
-DONT_HAVE_VALGRIND = $(if $(shell which valgrind),,y)
-THIS_IS_A_RELEASE = $(shell ls RELEASE 2>/dev/null)
+# Copyright (c) 2013, Octavio Alvarez <alvarezp@alvarezp.com>
+# Released under the Simplified BSD License. See the LICENSE file.
 
-VALGRIND = $(if $(or $(DONT_HAVE_VALGRIND),$(SKIP_VALGRIND),$(THIS_IS_A_RELEASE)),,$(VALGRIND_LINE) $(VALGRIND_EXTRA))
+# Automatic dependency generation adapted from
+# http://www.scottmcpeak.com/autodepend/autodepend.html
+
+ifeq ($(.DEFAULT_GOAL),)
+    .DEFAULT_GOAL := $(APP)
+endif
+
+APP_TESTS = $(wildcard tests/*.t.c)
+APP_TESTS_OBJ = $(patsubst tests/%.t.c,.caddeus/testobj/%.to,$(APP_TESTS))
+APP_TESTS_BIN = $(patsubst tests/%.t.c,.caddeus/testbin/%.t,$(APP_TESTS))
+APP_TESTS_TS = $(patsubst tests/%.t.c,.caddeus/timestamps/%.ts,$(APP_TESTS))
+
+APP_TESTS_TT = $(wildcard tests/*.tt)
+APP_TESTS_TTS = $(patsubst tests/%.tt,.caddeus/timestamps/%.tts,$(APP_TESTS_TT))
+
+OBJ_TESTS = $(foreach d,$(patsubst %.o,tests/%/*.t.c,$(OBJS)),$(wildcard $(d)))
+OBJ_TESTS_OBJ = $(patsubst tests/%.t.c,.caddeus/testobj/%.to,$(OBJ_TESTS))
+OBJ_TESTS_BIN = $(patsubst tests/%.t.c,.caddeus/testbin/%.t,$(OBJ_TESTS))
+OBJ_TESTS_TS = $(patsubst tests/%.t.c,.caddeus/timestamps/%.ts,$(OBJ_TESTS))
+
+#Make each ./tests/unitname/testname.t depend on ./unitname.o.
+$(foreach f,$(OBJ_TESTS_BIN),$(call eval,$f:$(word 3,$(subst /, ,$f)).o))
+
+DONT_HAVE_VALGRIND = $(if $(shell which valgrind),,y)
+
+VALGRIND = $(if $(or $(DONT_HAVE_VALGRIND),$(SKIP_VALGRIND)),,$(VALGRIND_LINE) $(VALGRIND_EXTRA))
 
 DONT_HAVE_CPPCHECK = $(if $(shell which cppcheck),,y)
 
-CPPCHECK = $(if $(or $(DONT_HAVE_CPPCHECK),$(SKIP_CPPCHECK),$(THIS_IS_A_RELEASE)),true '-- skipping Cppcheck --',$(CPPCHECK_LINE) $(CPPCHECK_EXTRA))
+CPPCHECK = $(if $(or $(DONT_HAVE_CPPCHECK),$(SKIP_CPPCHECK)),true '-- skipping Cppcheck --',$(CPPCHECK_LINE) $(CPPCHECK_EXTRA))
 
 DONT_HAVE_CLANG = $(if $(shell which clang),,y)
 
-CLANG = $(if $(or $(DONT_HAVE_CLANG),$(SKIP_CLANG),$(THIS_IS_A_RELEASE)),true '-- skipping Clang --',$(CLANG_LINE) $(CLANG_EXTRA))
+CLANG = $(if $(or $(DONT_HAVE_CLANG),$(SKIP_CLANG)),true '-- skipping Clang --',$(CLANG_LINE) $(CLANG_EXTRA))
 
-CFLAGS := $(if $(THIS_IS_A_RELEASE),-DNDEBUG,) $(CFLAGS)
+DONT_HAVE_SPLINT = $(if $(shell which splint),,y)
 
-# Arithmetic taken from this amazing article by John Graham-Cumming:
-# http://www.cmcrossroads.com/article/learning-gnu-make-functions-arithmetic
-16 := x x x x x x x x x x x x x x x
-input_int := $(foreach a,$(16),$(foreach b,$(16),$(foreach c,$(16),$(16))))
-decode = $(words $1)
-encode = $(wordlist 1,$1,$(input_int))
-multiply = $(call decode,$(foreach a,$(call encode,$1),$(call encode,$2)))
+SPLINT = $(if $(or $(DONT_HAVE_SPLINT),$(SKIP_SPLINT)),true '-- skipping Splint --',$(SPLINT_LINE) $(SPLINT_EXTRA))
 
 DEFAULT_TIMEOUT=0
 ifdef TIMEOUT
 	DEFAULT_TIMEOUT=$(TIMEOUT)
 endif
 
-.DEFAULT_GOAL := all
+.PHONY : strict
+strict: $(OBJ_TESTS_TS) $(APP_TESTS_TS) $(APP_TESTS_TTS) $(APP)
+	@echo
+	@echo "Strict build completed successfully."
 
-.PHONY : all
-all: $(APP) $(APP_TESTS_TTS) $(APP_TESTS_TS)
-	@echo "Build completed successfully."
+.PHONY : check
+check: $(APP) $(OBJ_TESTS_TS) $(APP_TESTS_TS) $(APP_TESTS_TTS)
+	@echo
+	@echo "Test suite completed successfully."
+
+.PHONY : cheat
+cheat:
+	mkdir -p $(foreach ts,$(OBJ_TESTS_TS) $(APP_TESTS_TS) $(APP_TESTS_TTS),$(dir $(ts)))
+	touch $(foreach ts,$(OBJ_TESTS_TS) $(APP_TESTS_TS) $(APP_TESTS_TTS),$(ts))
+	@echo
+	@echo "Test suite timestamps generated successfully."
 
 # Pull in dependency info for existing .o and .t files.
--include $(patsubst %.o,.caddeus/dependencies/%.d,$(ALL_OBJS))
--include $(patsubst %.o,.caddeus/dependencies/%.t.d,$(ALL_OBJS))
+-include $(patsubst %.o,.caddeus/dependencies/%.d,$(OBJS))
+-include $(patsubst .caddeus/testobj/%.to,.caddeus/dependencies/tests/%.t.d,$(OBJ_TESTS_OBJ) $(APP_TESTS_OBJ))
 
-# All lower targets depend on GNUmakefile so everything rebuilds if GNUmakefile
+# All lower targets depend on $(REBUILD_ON) so everything rebuilds if $(REBUILD_ON)
 # changes.
-GNUmakefile:
+$(REBUILD_ON):
 
-$(APP): $(ALL_OBJS) $(OBJ_TESTS_TS)
+$(APP): $(OBJS)
 	@echo -e '\n'===== $@, building app...
-	gcc -o $(APP) $(OBJS_TDD) $(OBJS_NO_TDD) $(LIBS)
+	$(CC) $(LDFLAGS) $(OBJS) -o $(APP) $(LDLIBS)
 
 # Compile plus generate dependency information.
-%.o: %.c GNUmakefile
+%.o: %.c $(REBUILD_ON)
 	@echo -e '\n'===== $@, building module...
-	$(CPPCHECK) $*.c
+	$(CPPCHECK) $<
+	$(SPLINT) $<
 	@mkdir -p .caddeus/clang/$(*D)
-	$(CLANG) $(CFLAGS) -o .caddeus/clang/$*.plist $*.c
-	gcc $(CFLAGS) -o $*.o -c $*.c
+	$(CLANG) $(CFLAGS) -o .caddeus/clang/$*.plist $<
+	$(CC) $(CFLAGS) -o $@ -c $<
 	@echo -e '\n'===== $@, generating dependency information...
 	@mkdir -p .caddeus/dependencies/$(*D)
-	gcc $(CFLAGS) -MM -MP -MT $*.o $*.c > .caddeus/dependencies/$*.d
+	$(CC) $(CPPFLAGS) $(CFLAGS) -M $< | sed '1s,^\(.*\).o:,$*.o:,' \
+	  > .caddeus/dependencies/$*.d
 
-.caddeus/timestamps/%.ts: %.t
-	$(eval CALL_TIMEOUT=$(call multiply,$(firstword $($(@:.ts=_TIMEOUT_MULT)) 1),$(DEFAULT_TIMEOUT)))
-	@echo -e '\n'===== $@, running test with timeout=$(CALL_TIMEOUT)...
+.caddeus/timestamps/%.ts: .caddeus/testbin/%.t
+	@echo -e '\n'===== running test \"$*\" with timeout=$(DEFAULT_TIMEOUT)...
 	@mkdir -p $(@D)
-	timeout $(CALL_TIMEOUT) $(VALGRIND) ./$*.t && touch $@
+	timeout $(DEFAULT_TIMEOUT) $(VALGRIND) $< && touch $@
 
-.caddeus/timestamps/%.tts: %.tt $(APP)
-	$(eval CALL_TIMEOUT=$(call multiply,$(firstword $($(@:.tts=_TIMEOUT_MULT)) 1),$(DEFAULT_TIMEOUT)))
-	@echo -e '\n'===== $@, running test with timeout=$(CALL_TIMEOUT)...
+.caddeus/timestamps/%.tts: tests/%.tt $(APP)
+	@echo -e '\n'===== running test \"$*\" test with timeout=$(DEFAULT_TIMEOUT)...
 	@mkdir -p $(@D)
-	timeout $(CALL_TIMEOUT) $(VALGRIND) ./$*.tt && touch $@
+	timeout $(DEFAULT_TIMEOUT) $< && touch $@
 
-%.t.c:
-	@echo -e '\n'===== $@ doesn\'t exist\! Please create one.
-	@false
-
-%.tt:
-	@echo -e '\n'===== $@ doesn\'t exist\! Please create one.
-	@false
-
-%.to: %.t.c GNUmakefile
+.caddeus/testobj/%.to: tests/%.t.c $(REBUILD_ON)
 	@echo -e '\n'===== $@, building test module...
-	$(CPPCHECK) $*.t.c
-	@mkdir -p .caddeus/clang/$(*D)
-	$(CLANG) $(CFLAGS) -o .caddeus/clang/$*.t.plist $*.t.c
-	gcc $(CFLAGS) -o $*.to -c $*.t.c
+	$(CPPCHECK) -I. $<
+	$(SPLINT) -I. $<
+	@mkdir -p .caddeus/clang/tests/$(*D)
+	$(CLANG) $(CFLAGS) -I. -o .caddeus/clang/tests/$*.t.plist $<
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I. -o $@ -c $<
 	@echo -e '\n'===== $@, generating dependency information...
-	@mkdir -p .caddeus/dependencies/$(*D)
-	gcc $(CFLAGS) -MM -MP -MT $*.to $*.t.c > .caddeus/dependencies/$*.t.d
+	@mkdir -p .caddeus/dependencies/tests/$(*D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -I. -M $< | sed '1s,^\(.*\).t.o:,$@:,' \
+	  > .caddeus/dependencies/tests/$*.t.d
 
-%.t: %.to %.o
+.caddeus/testbin/%.t: .caddeus/testobj/%.to
 	@echo -e '\n'===== $@, building test...
-	gcc -o $*.t $^ $($(@:.t=_TEST_LIBS))
-
-%.t: %.to
-	@echo -e '\n'===== $@, building test...
-	gcc -o $*.t $^ $($(@:.t=_TEST_LIBS))
+	@mkdir -p $(@D)
+	$(CC) $($*_LDFLAGS) $^ -o $@ $($*_LDLIBS)
 
 .PHONY : clean
 clean:
 	@echo -e '\n'===== Cleaning...
-	rm -f $(APP)
 	rm -fr .caddeus
-	rm -f $(OBJS_NO_TDD)
-	rm -f $(OBJS_TDD)
-	rm -f $(patsubst %.o,%.t,$(OBJS_TDD))
-	rm -f $(patsubst %.o,%.to,$(OBJS_TDD))
-	rm -f $(filter %.t,$(APP_TESTS))
-	rm -f $(patsubst %.t,%.to,$(filter %.t,$(APP_TESTS)))
+	rm -f $(APP)
+	rm -f $(OBJS)
 	rm -f $(CLEAN_MORE)
 
 .PHONY : force
 force:
 	$(MAKE) clean
-	$(MAKE) all
+	$(MAKE)
